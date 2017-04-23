@@ -1,0 +1,19 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+<file alias="add.svg">./icons/add.svg</file>
+<file alias="edit.svg">./icons/edit.svg</file>
+<file alias="icon.svg">./icons/icon.svg</file>
+<file alias="load-profile.svg">./icons/load-profile.svg</file>
+<file alias="marker.svg">./icons/marker.svg</file>
+<file alias="open.svg">./icons/open.svg</file>
+<file alias="pause.svg">./icons/pause.svg</file>
+<file alias="play.svg">./icons/play.svg</file>
+<file alias="quit.svg">./icons/quit.svg</file>
+<file alias="rec.svg">./icons/rec.svg</file>
+<file alias="reset.svg">./icons/reset.svg</file>
+<file alias="stop.svg">./icons/stop.svg</file>
+<file alias="undo-all.svg">./icons/undo-all.svg</file>
+<file alias="undo.svg">./icons/undo.svg</file>
+<file alias="values.svg">./icons/values.svg</file>
+</qresource>
+</RCC>

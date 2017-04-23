@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+
+# Docs builds
+docs/_build/
+firmware/mbed-daq/BUILD
+firmware/mbed-daq/mbed-os
+firmware/mbed-daq/.mbed
+firmware/mbed-daq/mbed-os.lib
+firmware/mbed-daq/mbed_settings.py
+
+# UI
+ui/__pycache__
