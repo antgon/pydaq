@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with pydaq. If not, see <http://www.gnu.org/licenses/>.
 
+from itertools import count
 from PyQt5 import (QtCore, QtGui, QtWidgets)
 import pyqtgraph as pg
 import numpy as np
@@ -201,6 +202,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.display_status('stop')
 
+    def on_physUnitsCheckBox_toggled(self):
+        self.update_y_labels()
 
     # Capture group ----------------------------------------------------
 
@@ -266,22 +269,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def update_plot(self):
         with self.daq.lock:
-            #x = self.daq.x.copy()
             x = np.array(self.daq.x)
             y = np.array(self.daq.y).T
-        for (curve, samples) in zip(self.curves, y):
-            curve.setData(x, samples)
-        # self.plots[-1].setXRange(
-        #        np.min(self.daq.xbuff),
-        #        np.max(self.daq.xbuff))
+            for (index, curve, samples) in zip(count(), self.curves, y):
+                if self.physUnitsCheckBox.isChecked():
+                    samples = self.daq.signals[index].dig_to_phys(samples)
+                curve.setData(x, samples)
 
     def setup_plot(self):
 
-        # title_fontsize = 9
+        title_fontsize = 10
         x_tick_fontsize = 10
         y_tick_fontsize = 10
         # marker_fontsize = 8
-        y_tick_margin = 40
+        y_tick_margin = 60
         curve_colour = "#acfa58"
 
         xfont = pg.QtGui.QFont()
@@ -321,12 +322,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             xaxis.setStyle(showValues=False)
             plot.showGrid(x=True, y=True)
 
+            # Set titles.
+            title = "<span style='font-size:{}pt'>{}</span>".format(
+                    title_fontsize, self.daq.signals[row].label)
+            plot.setTitle(title, justify='left')
+
+            # Create curves.
             curve = plot.plot(pen=curve_colour)
             self.plots.append(plot)
             self.curves.append(curve)
-
-        # Set y-axis labels.
-        self.update_labels()
 
         # Link x-axis from all plots to that of the last one.
         for plot in self.plots[:-1]:
@@ -339,18 +343,24 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         xaxis.setTickFont(yfont)
         last_plot.setLabel('bottom', 'Time', units='s', size=10)
 
+        # Add labesl to y axis
+        self.update_y_labels()
+
         # Update plot at regular intervals.
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot)
         self.timer.start(self.GUI_REFRESH_RATE)
 
-    def update_labels(self):
+    def update_y_labels(self):
+        ylab_fontsize = 9
+        fmt = "<span style='font-size:{}pt'>".format(ylab_fontsize)
+        fmt += "{}</span>"
         for indx, plot in enumerate(self.plots):
-            lbl = "<span style='font-size:{}pt'>{}</span>".format(
-                9, self.daq.signals[indx].label)
-            # TODO y-axis units
-            # plot.setLabel('left', 'Value', units = 'V')
-            plot.setTitle(lbl, justify='left')
+            if self.physUnitsCheckBox.isChecked():
+                text = self.daq.signals[indx].physical_dim
+            else:
+                text = 'ADC'
+            plot.setLabel('left', fmt.format(text), units=None)
 
     def display_status(self, status):
         if status == 'running':
