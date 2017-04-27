@@ -175,9 +175,6 @@ class MCU(object):
         self.serial = Serial(port=self.port, baudrate=self.baud,
                              timeout=None)
 
-        time.sleep(0.1)
-        self.configure()
-
     def configure(self):
         # Reset the MCU and input buffer just to be sure.
         self.reset()
@@ -307,7 +304,8 @@ class DataAcquisition(Configuration):
         # Connect to microcontroller
         self.mcu.connect(baud=self.baud,
                          sampling_freq=self.sampling_freq)
-                         #buffer_size=self.buffer_size)
+        time.sleep(0.1)
+        self.mcu.configure()
 
         # Set flags and start thread for reading data
         self._read_flag = True
@@ -324,6 +322,7 @@ class DataAcquisition(Configuration):
         self.y = None
         self.x = None
         self._iobuffer = None
+        self.mcu.reset()
         time.sleep(0.2)
         self.mcu.disconnect()
 
@@ -431,6 +430,7 @@ class DataAcquisition(Configuration):
         # TODO Wait for last data record to be flushed to disk
 
         self._iobuffer = None
+        self.mcu.reset()
         time.sleep(0.2)
         self.edffile.close()
         self.stop()

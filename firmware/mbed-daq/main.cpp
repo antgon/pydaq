@@ -111,7 +111,7 @@ User-defined variables
 // If defined, the ADC will not read data and instead timer values will
 // be packed and sent. Useful for testing that data packing, sending,
 // and unpacking work as expected.
-#define TEST
+//#define TEST
 
 // Analog input variables. After setting these up, the `read_adc`
 // function must be modified so that the values are read and added
@@ -123,6 +123,13 @@ AnalogIn analog_2(A2);
 volatile uint16_t val_0 = 0;
 volatile uint16_t val_1 = 0;
 volatile uint16_t val_2 = 0;
+
+// A digital pin configured in output mode and held up when the mbed
+// is not configured or when it is reset (just as LED1). It will be
+// pulled down when the mbed starts acquiring data. This pin can be used
+// to synchronise e.g. video acquisition with the RPi.
+#define CAMERA_PIN p21
+
 
 /*************************
 END user-defined variables
@@ -136,7 +143,7 @@ END user-defined variables
 // from the master.
 uint16_t output_size = 0;
 // Initialise data acquisition buffer and related variables.
-static uint16_t   data_buffer[2][1024];
+static uint16_t   data_buffer[2][BUFFER_SIZE];
 volatile uint16_t buffer_index  = 0;
 volatile bool     buffer_select = 0;
 volatile bool     buffer_ready  = false;
@@ -156,6 +163,9 @@ volatile uint32_t timestamp = 0;
 
 // An LED to signal 'waiting for configuration'.
 DigitalOut led1(LED1);
+#ifdef CAMERA_PIN
+DigitalOut picamera(CAMERA_PIN);
+#endif
 
 // Function prototypes.
 void serial_rx_interrupt();
@@ -269,6 +279,9 @@ void reset(){
     buffer_select = 0;
     buffer_ready  = false;
     led1 = 1;
+#ifdef CAMERA_PIN
+    picamera = 1;
+#endif
 }
 
 void configure() {
@@ -294,25 +307,32 @@ void configure() {
     // If the sampling frequency is too low the operation above will
     // result in 0; for example, if sampling_freq is 1 Hz,
     // int(1 * 0.2) = 0. These lines avoid that situation.
-    if (output_buffer_size == 0){
-        output_buffer_size = number_of_signals;
+    if (output_size == 0){
+        output_size = number_of_signals;
     }
 
-    // Send back to the master the received values for confirmation.
+    // Send back the received values to the master for confirmation.
     pc.printf("%i %3.0f %u\n", seconds, sampling_freq, output_size);
 
     // Start ticker. 'Ticker.attach' takes the interval value in seconds
     // (float), thus the inverse of the sampling frequency.
     sampler.attach(&read_adc, 1/sampling_freq);
 
-    // Switch off led to indicate that configuration has take place.
+    // Switch off led to indicate that configuration has taken place and
+    // data acquisition is in progress.
     led1 = 0;
+#ifdef CAMERA_PIN
+    picamera = 0;
+#endif
 }
 
 int main(){
     pc.baud(BAUD);
     // Switch on 'waiting for configuration' led.
     led1 = 1;
+#ifdef CAMERA_PIN
+    picamera = 1;
+#endif
 
     // Set-up an interrupt on serial Rx. An 'R' character will trigger a
     // reset/configuration in a new thread.
