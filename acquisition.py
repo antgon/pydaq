@@ -145,6 +145,29 @@ class MCU(object):
 
     def __init__(self, manufacturer='mbed'):
         self.manufacturer = manufacturer
+        self.port = None
+
+    def connect(self, baud, sampling_freq):
+        self.baud = baud
+        self.sampling_freq = sampling_freq
+
+        # In case a previosly-open port was left behind.
+        if self.port is not None:
+            self.serial.close()
+
+        # Find and connect to the microcontroller.
+        ports = [port for port in list_ports.comports()]
+        manufacturers = [port.manufacturer for port in ports]
+        try:
+            index = manufacturers.index(self.manufacturer)
+        except ValueError:
+            self.port = None
+            raise SerialException('{} not found in serial ports'.format(
+                    self.manufacturer))
+        self.port = ports[index].device
+        self.serial = Serial(port=self.port, baudrate=self.baud,
+                             timeout=None)
+        time.sleep(0.1)
 
     def reset(self):
         # Send reset character 'R'.
@@ -159,26 +182,7 @@ class MCU(object):
         while self.serial.in_waiting:
             self.serial.reset_input_buffer()
 
-    def connect(self, baud, sampling_freq):
-        self.baud = baud
-        self.sampling_freq = sampling_freq
-
-        # Find and connect to the microcontroller.
-        ports = [port for port in list_ports.comports()]
-        manufacturers = [port.manufacturer for port in ports]
-        try:
-            index = manufacturers.index(self.manufacturer)
-        except ValueError:
-            raise SerialException('{} not found in serial ports'.format(
-                    self.manufacturer))
-        self.port = ports[index].device
-        self.serial = Serial(port=self.port, baudrate=self.baud,
-                             timeout=None)
-
     def configure(self):
-        # Reset the MCU and input buffer just to be sure.
-        self.reset()
-
         # The microcontroller requires configuration information.
         # This is expected to be a string composed of:
         #  (1) A 'T' (one char)
@@ -191,6 +195,7 @@ class MCU(object):
         cmd = cmd.encode('ascii')
         assert(len(cmd) == 15)
         self.serial.write(cmd)
+        time.sleep(0.01)
 
         # In return, the microcontroller will send back one line of
         # space-separated values: seconds, sampling_freq,
@@ -206,7 +211,7 @@ class MCU(object):
         try:
             confirm = [int(chars) for chars in confirm.split()]
         except ValueError:
-            # A value error will occurr if the received data are bytes
+            # A value error will occur if the received data are bytes
             # instead of ascii characters.
             self.disconnect()
             print("Microcontroller's 'confirm': ", confirm)
@@ -215,9 +220,8 @@ class MCU(object):
 
         seconds, sampling_freq, buffer_size = confirm
 
-        if (
-                (int(seconds) != self.timestamp) or
-                (int(sampling_freq) != self.sampling_freq)):
+        if ((int(seconds) != self.timestamp) or
+            (int(sampling_freq) != self.sampling_freq)):
             msg = ('Microcontroller configuration mismatch.' +
                    '\n(MCU time: {}, MCU sampling: {})'.format(
                            seconds, sampling_freq))
@@ -233,7 +237,8 @@ class MCU(object):
         return self.serial.in_waiting
 
     def disconnect(self):
-        #self.reset()
+        self.reset()
+        time.sleep(0.01)
         self.serial.close()
 
 
@@ -262,6 +267,14 @@ class DataAcquisition(Configuration):
 
         # Flags for flow control
         self._read_flag = False
+
+        # TODO each signal must have sampling frequency defined.
+        # Where is it best to do this? Here or when creating each
+        # signal? The way it is now all signals are aqcuired at the same
+        # rate but EDF allows for different sampling rates.
+        for signal in self.signals:
+            signal.sampling_freq = self.sampling_freq
+
 
     @property
     def edffile(self):
@@ -304,26 +317,26 @@ class DataAcquisition(Configuration):
         # Connect to microcontroller
         self.mcu.connect(baud=self.baud,
                          sampling_freq=self.sampling_freq)
-        time.sleep(0.1)
         self.mcu.configure()
 
         # Set flags and start thread for reading data
         self._read_flag = True
         self.lock = threading.Lock()
-        self._thread = threading.Thread(target=self._read)
-        self._thread.daemon = True
+        self._thread = threading.Thread(target=self._read,
+                                        name='Read-data')
+        #self._thread.daemon = True
         self._thread.start()
 
     def stop(self):
         # Do nothing if reading is not in progress.
         if self._read_flag is False:
             return
+        # Cancel data-reading thread
         self._read_flag = False
         self.y = None
         self.x = None
         self._iobuffer = None
-        self.mcu.reset()
-        time.sleep(0.2)
+        self._thread.join()
         self.mcu.disconnect()
 
     def _read(self):
@@ -426,11 +439,16 @@ class DataAcquisition(Configuration):
     def stop_recording(self):
         if self._iobuffer is None:
             return
-
-        # TODO Wait for last data record to be flushed to disk
-
-        self._iobuffer = None
-        self.mcu.reset()
-        time.sleep(0.2)
-        self.edffile.close()
+        # TODO Add option to wait for last data record to be flushed to
+        # disk before closing down.
         self.stop()
+        self.edffile.close()
+
+
+if __name__ == '__main__':
+    labels = ['Sig_{}'.format(n) for n in range(3)]
+    signals = [Signal(label) for label in labels]
+    subject = SubjectId()
+    recording = RecordingId()
+    self = DataAcquisition(signals=signals)
+    #self.open_edf('foo.edf', subject, recording)
