@@ -19,6 +19,8 @@
 # along with pydaq. If not, see <http://www.gnu.org/licenses/>.
 
 from itertools import count
+import datetime as dt
+import time
 from PyQt5 import (QtCore, QtGui, QtWidgets)
 import pyqtgraph as pg
 import numpy as np
@@ -167,11 +169,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return False
         else:
             self.statusbar.clearMessage()
+            start = dt.datetime.fromtimestamp(self.daq.mcu.timestamp)
+            start = dt.datetime.strftime(start, '%Y-%m-%d %H:%M:%S')
             self.statusbar.showMessage(
-                    'µC port: {}  |  Sampling frequency: {:.2f} Hz'.
-                    # format(self.daq.port.systemLocation(),
-                    format(self.daq.mcu.port,
-                           self.daq.sampling_freq))
+                    'µC port: {} | '.format(self.daq.mcu.port) +
+                    'Sampling frequency: {:.2f} Hz | '.format(
+                            self.daq.sampling_freq) +
+                    'Start: {}'.format(start))
             self.setup_plot()
             return True
 
@@ -194,12 +198,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.timer.stop()
         self.daq.stop()
 
+        #tend = dt.datetime.fromtimestamp(time.time())
+        #tend = dt.datetime.strftime(tend, '%Y-%m-%d %H:%M:%S')
+        #print('Stop: {}'.format(tend))
+
         self.playButton.setEnabled(True)
-        # self.playButton.setChecked(False)
         self.stopButton.setDisabled(True)
         self.configurationGroupBox.setEnabled(True)
         self.captureGroupBox.setEnabled(True)
-
         self.display_status('stop')
 
     def on_physUnitsCheckBox_toggled(self):
