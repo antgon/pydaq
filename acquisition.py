@@ -59,82 +59,6 @@ def print_ports():
         print()
 
 
-class Configuration(object):
-    """
-    Configuration parameters for data acquisition.
-
-    baud : :obj:`uint`
-        Baud rate for communicating with the MCU.
-    sampling_freq :  :obj:`uint`
-        Sampling frequency in Hz.
-    working_dir : :obj:`str`
-        Directory where data files will be saved. Defaults to ``'.'``.
-    signals : :obj:`list` of :obj:`edfrw.Signal`
-        List of signals to acquire. The contents must match those
-        signals expected from the MCU.
-    saving_period_s : :obj:`int`
-        How often (seconds) are data samples saved to disk. Defaults
-        to 5 seconds.
-    """
-    def __init__(self, baud, sampling_freq, working_dir='.',
-                 signals=[], saving_period_s=5):
-        self.baud = baud
-        self.sampling_freq = sampling_freq
-        self.working_dir = working_dir
-        self.signals = signals
-        self.saving_period_s = saving_period_s
-
-    @property
-    def baud(self):
-        '''
-        Baud rate used for communicating with the microcontroller.
-        '''
-        return self._baud
-
-    @baud.setter
-    def baud(self, value):
-        if value not in BAUD_RATES:
-            raise ValueError(
-                    'Baud rate {} is not supported'.format(value))
-        self._baud = value
-
-    @property
-    def working_dir(self):
-        '''
-        Directory where data files will be saved.
-        '''
-        return self._working_dir
-
-    @working_dir.setter
-    def working_dir(self, path):
-        if path == '.':
-            self._working_dir = os.getcwd()
-        else:
-            if not os.path.exists(path):
-                raise ValueError('Path {} does not exist'.format(path))
-            self._working_dir = path
-
-    @property
-    def signals(self):
-        '''
-        List of signals.
-
-        Each element of the list must be of class edfrw.Signal.
-        '''
-        return self._signals
-
-    @signals.setter
-    def signals(self, signals):
-        self._signals = signals
-
-    @property
-    def nsignals(self):
-        '''
-        Number of signals (read-only)
-        '''
-        return len(self._signals)
-
-
 class MCU(object):
     """
     Microcontroller unit manager.
@@ -242,19 +166,16 @@ class MCU(object):
         self.serial.close()
 
 
-class DataAcquisition(Configuration):
+class DataAcquisition(object):
 
     _start = b'\xff\xff\xff\xff'
     _start_size = 4
     _header_size = 4
 
-    def __init__(self, baud=115200, sampling_freq=100,
-                 working_dir='.', signals=[], saving_period_s=5):
-        Configuration.__init__(self, baud=baud,
-                               sampling_freq=sampling_freq,
-                               working_dir=working_dir,
-                               signals=signals,
-                               saving_period_s=saving_period_s)
+    def __init__(self, baud, sampling_freq, data_path, saving_period_s,
+                 signals=[]):
+        self.config = Configuration(baud, sampling_freq, data_path,
+                                    saving_period_s, signals)
 
         # Public variables
         self.x = None
@@ -268,14 +189,6 @@ class DataAcquisition(Configuration):
         # Flags for flow control
         self._read_flag = False
 
-        # TODO each signal must have sampling frequency defined.
-        # Where is it best to do this? Here or when creating each
-        # signal? The way it is now all signals are aqcuired at the same
-        # rate but EDF allows for different sampling rates.
-        for signal in self.signals:
-            signal.sampling_freq = self.sampling_freq
-
-
     @property
     def edffile(self):
         if self._edffile is None or self._edffile.closed:
@@ -285,7 +198,7 @@ class DataAcquisition(Configuration):
 
     def open_edf(self, filename, subject_id, recording_id,
                 date_time=None):
-        filename = os.path.join(self.working_dir, filename)
+        filename = os.path.join(self.config.data_path, filename)
         self._edffile = EdfWriter(
                 filename, subject_id, recording_id,
                 signals=self.signals,
