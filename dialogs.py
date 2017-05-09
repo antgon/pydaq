@@ -23,9 +23,7 @@ from datetime import datetime
 from PyQt5 import (QtCore, QtGui, QtWidgets)
 
 from edfrw import Signal
-
 from ui.ui_configuration_dialog import Ui_ConfigurationDialog
-from ui.ui_new_file_dialog import Ui_NewFileDialog
 from ui.ui_signal_dialog import Ui_SignalDialog
 from configuration import BAUD_RATES
 
@@ -423,47 +421,6 @@ class RecordingIdModel(QtCore.QAbstractListModel):
                     QtCore.QAbstractListModel.flags(self, index) |
                     QtCore.Qt.ItemIsEditable)
 
-
-# class NewFileDialog(QtWidgets.QDialog, Ui_NewFileDialog):
-#
-#     def __init__(self, config, parent=None):
-#         QtWidgets.QDialog.__init__(self, parent)
-#         self.setupUi(self)
-#         self.config = config
-#
-#         # Default startdate is today.
-#         self.today = datetime.now()
-#         self.startdateDateEdit.setDate(self.today)
-#
-#         # Working dir is defined in the configuration dialog.
-#         self.filedirLabel.setText(self.config.data_path + os.sep)
-#
-#         self.mk_filename()
-#
-#     def mk_filename(self):
-#         '''
-#         Creates a file name with the subject name, the date, and a
-#         unique number.
-#         '''
-#         seq = 1
-#         subject_code = self.codeLineEdit.text()
-#         subject_code = subject_code.replace(' ', '_')
-#         # Format e.g.: 'M1324_DTR+_20170701_001.edf'
-#         fname_fmt = '{}_{:%Y%m%d}_{:03d}.edf'
-#         fname = fname_fmt.format(subject_code, self.today, seq)
-#         full_path = os.path.join(self.config.data_path, fname)
-#         while os.path.exists(full_path):
-#             seq += 1
-#             fname = fname_fmt.format(subject_code, self.today, seq)
-#             full_path = os.path.join(self.config.data_path, fname)
-#         self.filenameLineEdit.setText(fname)
-#
-#     def on_codeLineEdit_editingFinished(self):
-#         self.mk_filename()
-#
-#     def on_startdateDateEdit_dateChanged(self):
-#         self.today = self.startdateDateEdit.date().toPyDate()
-#         self.mk_filename()
 
 if __name__ == "__main__":
     import sys

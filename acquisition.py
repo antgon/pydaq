@@ -195,19 +195,6 @@ class DataAcquisition(object):
             self._edffile = None
         return self._edffile
 
-    def open_edf(self, filename, date_time=None):
-        filename = os.path.join(self.config.data_path, filename)
-        self._edffile = EdfWriter(filename,
-                                  self.config.subject_id,
-                                  self.config.recording_id,
-                                  signals=self.signals,
-                                  saving_period_s=self.saving_period_s,
-                                  date_time=date_time)
-        # Maximum length of input buffer before its data are flushed
-        # to disk.
-        self._iomaxlen = (
-                self.edffile.header.number_of_samples_in_data_record)
-
     def start(self, seconds=10):
         '''
         Connect and read serial input. Configuration must be done
@@ -370,4 +357,3 @@ class DataAcquisition(object):
 
 if __name__ == '__main__':
     self = DataAcquisition()
-    #self.open_edf('foo.edf', subject, recording)

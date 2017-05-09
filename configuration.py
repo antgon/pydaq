@@ -87,11 +87,11 @@ class Configuration(object):
 
         config_dir = os.path.join(os.environ['HOME'], '.config')
         if not os.path.exists(config_dir):
-            self.config_f = os.path.join(os.environ['HOME'],
+            self._config_f = os.path.join(os.environ['HOME'],
                                          '.pydaq.ini')
         else:
-            self.config_f = os.path.join(config_dir, 'pydaq.ini')
-        self.load(self.config_f)
+            self._config_f = os.path.join(config_dir, 'pydaq.ini')
+        self.load(self._config_f)
 
     @property
     def baud(self):
@@ -251,7 +251,7 @@ class Configuration(object):
         config = configparser.ConfigParser()
         config.read_dict(config_dict)
         if config_f is None:
-            config_f = self.config_f
+            config_f = self._config_f
         with open(config_f, 'w') as f:
             config.write(f)
 

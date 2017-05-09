@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(780, 538)
+        MainWindow.resize(780, 551)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/icon.svg"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         MainWindow.setWindowIcon(icon)
@@ -153,7 +153,7 @@ class Ui_MainWindow(object):
         self.configureButton.setText(_translate("MainWindow", "Configure"))
         self.configureButton.setShortcut(_translate("MainWindow", "Ctrl+C"))
         self.loadConfigButton.setText(_translate("MainWindow", "Load"))
-        self.saveConfigButton.setText(_translate("MainWindow", "Save"))
+        self.saveConfigButton.setText(_translate("MainWindow", "Save as"))
         self.displayGroupBox.setTitle(_translate("MainWindow", "Display"))
         self.playButton.setToolTip(_translate("MainWindow", "Start [P]"))
         self.playButton.setShortcut(_translate("MainWindow", "P"))

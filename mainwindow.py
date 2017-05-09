@@ -24,34 +24,13 @@ import time
 from PyQt5 import (QtCore, QtGui, QtWidgets)
 import pyqtgraph as pg
 import numpy as np
-from serial import (SerialException)  # SerialTimeoutException)
+from serial import (SerialException)
 
 from edfrw import (SubjectId, RecordingId, Signal)
 from ui.ui_main import Ui_MainWindow
-from acquisition import (DataAcquisition)
-from dialogs import (ConfigurationDialog)#, NewFileDialog)
+from acquisition import DataAcquisition
+from dialogs import ConfigurationDialog
 
-# TODO
-# Upon rec stop, wait for one full cycle to complete to ensure that the
-# last data acquired are saved.
-
-# Set a limit to sampling freq. What is reasonable and manageable? At
-# the moment the ange 1 to 999 are set directly in the UI because
-# configuration cmd in its current form can only take 3 digits for
-# sampling freq.
-
-# Plot displays physical instead of digital values
-
-# EDF items must be int16 (not uint16)-check that this is consistent.
-
-# Add option in MainWindow to change data period displayed (up to a max
-# of - say - 30 seconds)
-
-# EDF filename : date-time instead of date-sequence.
-# EDF specs http://www.edfplus.info/specs/video.html
-# suggest using patientiId
-# date(DD-MMM-YYYY) time(HhMmSs)
-# 20170502_T0718_
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     '''
