@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>780</width>
-    <height>538</height>
+    <height>551</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -43,18 +43,16 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="newFileButton">
-             <property name="toolTip">
-              <string>New file [Ctrl+N]</string>
-             </property>
-             <property name="toolTipDuration">
-              <number>-1</number>
-             </property>
+            <widget class="QPushButton" name="loadConfigButton">
              <property name="text">
-              <string>New file</string>
+              <string>Load</string>
              </property>
-             <property name="shortcut">
-              <string>Ctrl+N</string>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="saveConfigButton">
+             <property name="text">
+              <string>Save as</string>
              </property>
             </widget>
            </item>

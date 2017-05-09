@@ -77,11 +77,11 @@ class Configuration(object):
 
         if len(signals) == 0:
             signals = [Signal(label = 'Signal_' + str(n+1))
-                       for n in range(3)]
+                            for n in range(3)]
         # Each signal must have sampling frequency defined. Pydaq in its
         # current form acquires all signals at the same rate but EDF
         # allows for different sampling rates.
-        for signal in self.signals:
+        for signal in signals:
             signal.sampling_freq = self.sampling_freq
         self.signals = signals
 
@@ -137,24 +137,11 @@ class Configuration(object):
             self._data_path = path
 
     @property
-    def signals(self):
-        '''
-        List of signals.
-
-        Each element of the list must be of class edfrw.Signal.
-        '''
-        return self._signals
-
-    @signals.setter
-    def signals(self, signals):
-        self._signals = signals
-
-    @property
     def nsignals(self):
         '''
         Number of signals (read-only)
         '''
-        return len(self._signals)
+        return len(self.signals)
 
     @property
     def saving_period_s(self):
@@ -220,7 +207,7 @@ class Configuration(object):
                         prefiltering = sig.get('prefiltering', ''),
                         sampling_freq = self.sampling_freq))
 
-    def save(self):
+    def save(self, config_f=None):
         main_dict = OrderedDict([
                 ('baud', self.baud),
                 ('sampling_freq', self.sampling_freq),
@@ -263,8 +250,10 @@ class Configuration(object):
 
         config = configparser.ConfigParser()
         config.read_dict(config_dict)
-        with open(self.config_f, 'w') as config_f:
-            config.write(config_f)
+        if config_f is None:
+            config_f = self.config_f
+        with open(config_f, 'w') as f:
+            config.write(f)
 
 '''
 Using daq from command line--

@@ -27,15 +27,20 @@ from edfrw import Signal
 from ui.ui_configuration_dialog import Ui_ConfigurationDialog
 from ui.ui_new_file_dialog import Ui_NewFileDialog
 from ui.ui_signal_dialog import Ui_SignalDialog
-from acquisition import BAUD_RATES
+from configuration import BAUD_RATES
 
-CONFIG_NROWS = 3
-(BAUD, SAMPLING_FREQ, WORKING_DIR) = range(CONFIG_NROWS)
+CONFIG_NROWS = 4
+(BAUD, SAMPLING_FREQ, DATA_PATH, SAVING_PERIOD) = range(CONFIG_NROWS)
 
 SIGNAL_NCOLS = 8
 (LABEL, TRANSDUCER_TYPE, PHYSICAL_DIM, PHYSICAL_MIN, PHYSICAL_MAX,
  DIGITAL_MIN, DIGITAL_MAX, PREFILTERING) = range(SIGNAL_NCOLS)
 
+SUBJECT_NROWS = 4
+(CODE, SEX, DOB, NAME) = range(SUBJECT_NROWS)
+
+RECORDING_NROWS = 3
+(EXPERIMENT_ID, INVESTIGATOR_ID, EQUIPMENT) = range(RECORDING_NROWS)
 
 class SignalDialog(QtWidgets.QDialog, Ui_SignalDialog):
 
@@ -46,27 +51,49 @@ class SignalDialog(QtWidgets.QDialog, Ui_SignalDialog):
 
 class ConfigurationDialog(QtWidgets.QDialog, Ui_ConfigurationDialog):
 
-    def __init__(self, datamgr, parent=None):
+    def __init__(self, config, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
         self.setupUi(self)
 
         baud_rates = [str(baud) for baud in BAUD_RATES]
         baud_model = QtCore.QStringListModel(baud_rates, self)
         self.baudComboBox.setModel(baud_model)
+        sex_model = QtCore.QStringListModel(['F', 'M', 'X'], self)
+        self.sexComboBox.setModel(sex_model)
 
-        self.config = datamgr
+        self.config = config
 
         config_model = ConfigurationModel(self.config)
-        self.mapper = QtWidgets.QDataWidgetMapper(self)
-        self.mapper.setOrientation(QtCore.Qt.Vertical)
-        self.mapper.setModel(config_model)
-        self.mapper.addMapping(self.baudComboBox, BAUD)
-        self.mapper.addMapping(self.samplFreqSpinBox, SAMPLING_FREQ)
-        self.mapper.addMapping(self.pathLineEdit, WORKING_DIR)
-        self.mapper.toFirst()
+        mapper = QtWidgets.QDataWidgetMapper(self)
+        mapper.setOrientation(QtCore.Qt.Vertical)
+        mapper.setModel(config_model)
+        mapper.addMapping(self.baudComboBox, BAUD)
+        mapper.addMapping(self.samplFreqSpinBox, SAMPLING_FREQ)
+        mapper.addMapping(self.pathLineEdit, DATA_PATH)
+        mapper.addMapping(self.flushSecondsSpinBox, SAVING_PERIOD)
+        mapper.toFirst()
 
         self.signals_model = SignalModel(self.config.signals)
         self.tableView.setModel(self.signals_model)
+
+        subject_model = SubjectIdModel(self.config.subject_id)
+        mapper = QtWidgets.QDataWidgetMapper(self)
+        mapper.setOrientation(QtCore.Qt.Vertical)
+        mapper.setModel(subject_model)
+        mapper.addMapping(self.codeLineEdit, CODE)
+        mapper.addMapping(self.sexComboBox, SEX)
+        mapper.addMapping(self.dobDateEdit, DOB)
+        mapper.addMapping(self.nameLineEdit, NAME)
+        mapper.toFirst()
+
+        recording_model = RecordingIdModel(self.config.recording_id)
+        mapper = QtWidgets.QDataWidgetMapper(self)
+        mapper.setOrientation(QtCore.Qt.Vertical)
+        mapper.setModel(recording_model)
+        mapper.addMapping(self.experimentIdLineEdit, EXPERIMENT_ID)
+        mapper.addMapping(self.investigatorIdLineEdit, INVESTIGATOR_ID)
+        mapper.addMapping(self.equipmentCodeLineEdit, EQUIPMENT)
+        mapper.toFirst()
 
     def on_tableView_doubleClicked(self):
         row = self.tableView.currentIndex().row()
@@ -98,7 +125,7 @@ class ConfigurationDialog(QtWidgets.QDialog, Ui_ConfigurationDialog):
         path = QtWidgets.QFileDialog.getExistingDirectory(
                 self, caption='Select default data directory')
         if path:
-            self.config.working_dir = path
+            self.config.data_path = path
             self.pathLineEdit.setText(path)
 
     def on_samplFreqSpinBox_valueChanged(self):
@@ -140,8 +167,10 @@ class ConfigurationModel(QtCore.QAbstractListModel):
                 return QtCore.QVariant(self.config.baud)
             elif row == SAMPLING_FREQ:
                 return QtCore.QVariant(self.config.sampling_freq)
-            elif row == WORKING_DIR:
-                return QtCore.QVariant(self.config.working_dir)
+            elif row == DATA_PATH:
+                return QtCore.QVariant(self.config.data_path)
+            elif row == SAVING_PERIOD:
+                return QtCore.QVariant(self.config.saving_period_s)
         else:
             return QtCore.QVariant()
 
@@ -152,8 +181,10 @@ class ConfigurationModel(QtCore.QAbstractListModel):
                 self.config.baud = int(value)
             elif row == SAMPLING_FREQ:
                 self.config.sampling_freq = value
-            elif row == WORKING_DIR:
-                self.config.working_dir = value
+            elif row == DATA_PATH:
+                self.config.data_path = value
+            elif row == SAVING_PERIOD:
+                self.config.saving_period_s = value
             self.dataChanged.emit(index, index, [])
             return True
         else:
@@ -299,43 +330,145 @@ class SignalModel(QtCore.QAbstractTableModel):
         return True
 
 
-class NewFileDialog(QtWidgets.QDialog, Ui_NewFileDialog):
+class SubjectIdModel(QtCore.QAbstractListModel):
 
-    def __init__(self, config, parent=None):
-        QtWidgets.QDialog.__init__(self, parent)
-        self.setupUi(self)
-        self.config = config
+    def __init__(self, subject_id, parent=None):
+        super(SubjectIdModel, self).__init__(parent)
+        self.subject_id = subject_id
 
-        # Default startdate is today.
-        self.today = datetime.now()
-        self.startdateDateEdit.setDate(self.today)
+    def rowCount(self, index=QtCore.QModelIndex()):
+        return SUBJECT_NROWS
 
-        # Working dir is defined in the configuration dialog.
-        self.filedirLabel.setText(self.config.working_dir + os.sep)
+    def data(self, index, role=QtCore.Qt.DisplayRole):
+        row = index.row()
 
-        self.mk_filename()
+        if role in (QtCore.Qt.DisplayRole, QtCore.Qt.EditRole):
+            if row == CODE:
+                return QtCore.QVariant(self.subject_id.code)
+            elif row == SEX:
+                return QtCore.QVariant(self.subject_id.sex)
+            elif row == DOB:
+                return QtCore.QVariant(self.subject_id.dob)
+            elif row == NAME:
+                return QtCore.QVariant(self.subject_id.name)
+        else:
+            return QtCore.QVariant()
 
-    def mk_filename(self):
-        '''
-        Creates a file name with the subject name, the date, and a
-        unique number.
-        '''
-        seq = 1
-        subject_code = self.codeLineEdit.text()
-        subject_code = subject_code.replace(' ', '_')
-        # Format e.g.: 'M1324_DTR+_20170701_001.edf'
-        fname_fmt = '{}_{:%Y%m%d}_{:03d}.edf'
-        fname = fname_fmt.format(subject_code, self.today, seq)
-        full_path = os.path.join(self.config.working_dir, fname)
-        while os.path.exists(full_path):
-            seq += 1
-            fname = fname_fmt.format(subject_code, self.today, seq)
-            full_path = os.path.join(self.config.working_dir, fname)
-        self.filenameLineEdit.setText(fname)
+    def setData(self, index, value, role=QtCore.Qt.EditRole):
+        if index.isValid():
+            row = index.row()
+            if row == CODE:
+                self.subject_id.code = value
+            elif row == SEX:
+                self.subject_id.sex = value
+            elif row == DOB:
+                self.subject_id.dob = value.toPyDate()
+            elif row == NAME:
+                self.subject_id.name = value
+            self.dataChanged.emit(index, index, [])
+            return True
+        else:
+            return False
 
-    def on_codeLineEdit_editingFinished(self):
-        self.mk_filename()
+    def flags(self, index):
+        if not index.isValid():
+            return QtCore.Qt.ItemIsEnabled
+        else:
+            return QtCore.Qt.ItemFlags(
+                    QtCore.QAbstractListModel.flags(self, index) |
+                    QtCore.Qt.ItemIsEditable)
 
-    def on_startdateDateEdit_dateChanged(self):
-        self.today = self.startdateDateEdit.date().toPyDate()
-        self.mk_filename()
+
+class RecordingIdModel(QtCore.QAbstractListModel):
+
+    def __init__(self, recording_id, parent=None):
+        super(RecordingIdModel, self).__init__(parent)
+        self.recording_id = recording_id
+
+    def rowCount(self, index=QtCore.QModelIndex()):
+        return RECORDING_NROWS
+
+    def data(self, index, role=QtCore.Qt.DisplayRole):
+        row = index.row()
+
+        if role in (QtCore.Qt.DisplayRole, QtCore.Qt.EditRole):
+            if row == EXPERIMENT_ID:
+                return QtCore.QVariant(self.recording_id.experiment_id)
+            elif row == INVESTIGATOR_ID:
+                return QtCore.QVariant(self.recording_id.investigator_id)
+            elif row == EQUIPMENT:
+                return QtCore.QVariant(self.recording_id.equipment_code)
+        else:
+            return QtCore.QVariant()
+
+    def setData(self, index, value, role=QtCore.Qt.EditRole):
+        if index.isValid():
+            row = index.row()
+            if row == EXPERIMENT_ID:
+                self.recording_id.experiment_id = value
+            elif row == INVESTIGATOR_ID:
+                self.recording_id.investigator_id = value
+            elif row == EQUIPMENT:
+                self.recording_id.equipment_code = value
+            self.dataChanged.emit(index, index, [])
+            return True
+        else:
+            return False
+
+    def flags(self, index):
+        if not index.isValid():
+            return QtCore.Qt.ItemIsEnabled
+        else:
+            return QtCore.Qt.ItemFlags(
+                    QtCore.QAbstractListModel.flags(self, index) |
+                    QtCore.Qt.ItemIsEditable)
+
+
+# class NewFileDialog(QtWidgets.QDialog, Ui_NewFileDialog):
+#
+#     def __init__(self, config, parent=None):
+#         QtWidgets.QDialog.__init__(self, parent)
+#         self.setupUi(self)
+#         self.config = config
+#
+#         # Default startdate is today.
+#         self.today = datetime.now()
+#         self.startdateDateEdit.setDate(self.today)
+#
+#         # Working dir is defined in the configuration dialog.
+#         self.filedirLabel.setText(self.config.data_path + os.sep)
+#
+#         self.mk_filename()
+#
+#     def mk_filename(self):
+#         '''
+#         Creates a file name with the subject name, the date, and a
+#         unique number.
+#         '''
+#         seq = 1
+#         subject_code = self.codeLineEdit.text()
+#         subject_code = subject_code.replace(' ', '_')
+#         # Format e.g.: 'M1324_DTR+_20170701_001.edf'
+#         fname_fmt = '{}_{:%Y%m%d}_{:03d}.edf'
+#         fname = fname_fmt.format(subject_code, self.today, seq)
+#         full_path = os.path.join(self.config.data_path, fname)
+#         while os.path.exists(full_path):
+#             seq += 1
+#             fname = fname_fmt.format(subject_code, self.today, seq)
+#             full_path = os.path.join(self.config.data_path, fname)
+#         self.filenameLineEdit.setText(fname)
+#
+#     def on_codeLineEdit_editingFinished(self):
+#         self.mk_filename()
+#
+#     def on_startdateDateEdit_dateChanged(self):
+#         self.today = self.startdateDateEdit.date().toPyDate()
+#         self.mk_filename()
+
+if __name__ == "__main__":
+    import sys
+    from configuration import Configuration
+    config = Configuration()
+    app = QtWidgets.QApplication([])
+    self = ConfigurationDialog(config)
+    self.show()

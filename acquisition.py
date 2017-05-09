@@ -20,6 +20,7 @@
 
 import os
 import time
+import datetime as dt
 import threading
 from collections import deque
 
@@ -28,6 +29,7 @@ from serial.tools import list_ports
 import numpy as np
 
 from edfrw import (SubjectId, RecordingId, Signal, EdfWriter)
+from configuration import Configuration
 
 # Arduino baud rates, according to https://www.arduino.cc/en/Serial
 # /Begin: 300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400,
@@ -38,7 +40,7 @@ from edfrw import (SubjectId, RecordingId, Signal, EdfWriter)
 # https://developer.mbed.org/forum/mbed/topic/893/?page=1#comment-4526)
 #
 # It makes sense to only allow some of these.
-BAUD_RATES = (115200, 57600, 38400, 19200, 14400, 9600)
+#BAUD_RATES = (115200, 57600, 38400, 19200, 14400, 9600)
 
 
 def print_ports():
@@ -170,12 +172,9 @@ class DataAcquisition(object):
 
     _start = b'\xff\xff\xff\xff'
     _start_size = 4
-    _header_size = 4
 
-    def __init__(self, baud, sampling_freq, data_path, saving_period_s,
-                 signals=[]):
-        self.config = Configuration(baud, sampling_freq, data_path,
-                                    saving_period_s, signals)
+    def __init__(self):
+        self.config = Configuration()
 
         # Public variables
         self.x = None
@@ -196,20 +195,20 @@ class DataAcquisition(object):
             self._edffile = None
         return self._edffile
 
-    def open_edf(self, filename, subject_id, recording_id,
-                date_time=None):
+    def open_edf(self, filename, date_time=None):
         filename = os.path.join(self.config.data_path, filename)
-        self._edffile = EdfWriter(
-                filename, subject_id, recording_id,
-                signals=self.signals,
-                saving_period_s=self.saving_period_s,
-                date_time=date_time)
+        self._edffile = EdfWriter(filename,
+                                  self.config.subject_id,
+                                  self.config.recording_id,
+                                  signals=self.signals,
+                                  saving_period_s=self.saving_period_s,
+                                  date_time=date_time)
         # Maximum length of input buffer before its data are flushed
         # to disk.
         self._iomaxlen = (
                 self.edffile.header.number_of_samples_in_data_record)
 
-    def start(self, seconds=30):
+    def start(self, seconds=10):
         '''
         Connect and read serial input. Configuration must be done
         beforehand.
@@ -222,14 +221,14 @@ class DataAcquisition(object):
             return
 
         # Initialise data buffers.
-        maxlen = seconds * self.sampling_freq
-        self.y = deque([np.ones(self.nsignals) * np.nan],
+        maxlen = seconds * self.config.sampling_freq
+        self.y = deque([np.ones(self.config.nsignals) * np.nan],
                        maxlen=maxlen)
         self.x = deque([0], maxlen=maxlen)
 
         # Connect to microcontroller
-        self.mcu.connect(baud=self.baud,
-                         sampling_freq=self.sampling_freq)
+        self.mcu.connect(baud=self.config.baud,
+                         sampling_freq=self.config.sampling_freq)
         self.mcu.configure()
 
         # Set flags and start thread for reading data
@@ -261,7 +260,7 @@ class DataAcquisition(object):
 
         # Number of bytes to expect from microcontroller at every
         # iteration (i.e. packet size).
-        nbytes = (self._header_size +
+        nbytes = (self._start_size +
                   (self.mcu.buffer_size * serial_dtype.itemsize))
 
         # Find the header at the start of each data packet. Timeout
@@ -309,16 +308,15 @@ class DataAcquisition(object):
             else:
                 # Convert data bytes into required data type (uint16
                 # by default).
-                samples = np.frombuffer(samples,
-                                        dtype=serial_dtype)
+                samples = np.frombuffer(samples, dtype=serial_dtype)
 
                 # If the standard buffer is active, add the newly-
                 # read samples to it.
                 if self.y is not None:
                     y = np.reshape(samples,
-                                   (-1, self.nsignals))
-                    x = np.arange(len(y)) / self.sampling_freq
-                    x = x + self.x[-1] + (1/self.sampling_freq)
+                                   (-1, self.config.nsignals))
+                    x = np.arange(len(y)) / self.config.sampling_freq
+                    x = x + self.x[-1] + (1/self.config.sampling_freq)
                     self.x.extend(x)
                     self.y.extend(y)
 
@@ -328,9 +326,8 @@ class DataAcquisition(object):
                     self._iobuffer.extend(samples)
                     if len(self._iobuffer) == self._iomaxlen:
                         # reshape buffer
-                        samples = np.reshape(
-                                self._iobuffer,
-                                (-1, self.edffile.number_of_signals))
+                        samples = np.reshape(self._iobuffer,
+                                            (-1, self.config.nsignals))
                         samples = samples.flatten(order='F')
                         # write to file
                         self.edffile.write_data_record(samples)
@@ -340,11 +337,24 @@ class DataAcquisition(object):
 
     def start_recording(self):
         '''
-        Save data to file. requires an open edf file.
+        Save data to file.
         '''
-        if self.edffile is None:
-            print('Cannot save data. A new EDF file is required.')
-            return
+        # Format e.g.: 'ID2020_2017-05-09_17.01.46.edf'
+        now = dt.datetime.now()
+        filename = '{}_{:%Y-%m-%d_%H_%M_%S}.edf'.format(
+                self.config.subject_id.code, now)
+        filename = os.path.join(self.config.data_path, filename)
+        self._edffile = EdfWriter(
+                filename,
+                self.config.subject_id,
+                self.config.recording_id,
+                signals=self.config.signals,
+                saving_period_s=self.config.saving_period_s,
+                date_time=now)
+        # Maximum length of input buffer before its data are flushed
+        # to disk.
+        self._iomaxlen = (
+                self.edffile.header.number_of_samples_in_data_record)
         self.stop()
         self._iobuffer = deque()
         self.start()
@@ -359,9 +369,5 @@ class DataAcquisition(object):
 
 
 if __name__ == '__main__':
-    labels = ['Sig_{}'.format(n) for n in range(3)]
-    signals = [Signal(label) for label in labels]
-    subject = SubjectId()
-    recording = RecordingId()
-    self = DataAcquisition(signals=signals)
+    self = DataAcquisition()
     #self.open_edf('foo.edf', subject, recording)
