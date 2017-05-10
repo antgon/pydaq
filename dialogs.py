@@ -27,8 +27,8 @@ from ui.ui_configuration_dialog import Ui_ConfigurationDialog
 from ui.ui_signal_dialog import Ui_SignalDialog
 from configuration import BAUD_RATES
 
-CONFIG_NROWS = 4
-(BAUD, SAMPLING_FREQ, DATA_PATH, SAVING_PERIOD) = range(CONFIG_NROWS)
+MAIN_NROWS = 4
+(BAUD, SAMPLING_FREQ, DATA_PATH, SAVING_PERIOD) = range(MAIN_NROWS)
 
 SIGNAL_NCOLS = 8
 (LABEL, TRANSDUCER_TYPE, PHYSICAL_DIM, PHYSICAL_MIN, PHYSICAL_MAX,
@@ -39,6 +39,7 @@ SUBJECT_NROWS = 4
 
 RECORDING_NROWS = 3
 (EXPERIMENT_ID, INVESTIGATOR_ID, EQUIPMENT) = range(RECORDING_NROWS)
+
 
 class SignalDialog(QtWidgets.QDialog, Ui_SignalDialog):
 
@@ -61,10 +62,10 @@ class ConfigurationDialog(QtWidgets.QDialog, Ui_ConfigurationDialog):
 
         self.config = config
 
-        config_model = ConfigurationModel(self.config)
+        main_config_model = MainConfigModel(self.config)
         mapper = QtWidgets.QDataWidgetMapper(self)
         mapper.setOrientation(QtCore.Qt.Vertical)
-        mapper.setModel(config_model)
+        mapper.setModel(main_config_model)
         mapper.addMapping(self.baudComboBox, BAUD)
         mapper.addMapping(self.samplFreqSpinBox, SAMPLING_FREQ)
         mapper.addMapping(self.pathLineEdit, DATA_PATH)
@@ -148,14 +149,14 @@ class ConfigurationDialog(QtWidgets.QDialog, Ui_ConfigurationDialog):
         self.signals_model.removeRows(row)
 
 
-class ConfigurationModel(QtCore.QAbstractListModel):
+class MainConfigModel(QtCore.QAbstractListModel):
 
     def __init__(self, config, parent=None):
-        super(ConfigurationModel, self).__init__(parent)
+        super(MainConfigModel, self).__init__(parent)
         self.config = config
 
     def rowCount(self, index=QtCore.QModelIndex()):
-        return CONFIG_NROWS
+        return MAIN_NROWS
 
     def data(self, index, role=QtCore.Qt.DisplayRole):
         row = index.row()
