@@ -74,16 +74,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if ok_clicked:
             # TODO EDF allows to acquire each signal at different sample
             # rates, but for the time being this software aquires all
-            # signals at the same rate. This lines are to ensure that
-            # the signals sampling frequency match.
+            # signals at the same rate. These lines are to ensure that
+            # the signals' sampling frequency match.
             for signal in self.daq.config.signals:
                 signal.sampling_freq = self.daq.config.sampling_freq
-            # TODO check that there are enough signals and config is
-            # valid
-            # set sampling freq to each signal
-            #self.newFileButton.setEnabled(True)
-            #self.displayGroupBox.setEnabled(True)
-            #self.captureGroupBox.setEnabled(True)
             # At low sampling frequencies the GUI refresh rate must
             # be slowed down to avoid errors. GUI refresh rate is in
             # milliseconds.
@@ -97,7 +91,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if checked is None:
             return
         config_f = QtWidgets.QFileDialog.getOpenFileName(
-                self, caption='Select configuration file')
+                parent=self,
+                directory=self.daq.config.data_path,
+                filter='INI files (*.ini)',
+                caption='Select configuration file')
         config_f = config_f[0]
         if config_f:
             self.daq.config.load(config_f)
@@ -106,7 +103,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if checked is None:
             return
         config_f = QtWidgets.QFileDialog.getSaveFileName(
-                self, caption='Save configuration to...')
+                parent=self,
+                directory=self.daq.config.data_path,
+                filter='INI files (*.ini)',
+                caption='Save configuration as...')
         config_f = config_f[0]
         if config_f:
             self.daq.config.save(config_f)
@@ -125,6 +125,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             QtWidgets.QMessageBox.critical(self, msg, error.args[0])
             return False
         else:
+            # Display data
+            self.setup_plot()
+            # Display information on status bar
             self.statusbar.clearMessage()
             start = dt.datetime.fromtimestamp(self.daq.mcu.timestamp)
             start = dt.datetime.strftime(start, '%Y-%m-%d %H:%M:%S')
@@ -133,8 +136,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     'Sampling frequency: {:.2f} Hz | '.format(
                             self.daq.config.sampling_freq) +
                     'Start: {}'.format(start))
-            self.setup_plot()
-            # Reset buttons.
+            # Reset buttons
             self.playButton.setDisabled(True)
             self.stopButton.setEnabled(True)
             self.configurationGroupBox.setDisabled(True)
@@ -174,6 +176,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             QtWidgets.QMessageBox.critical(self, msg, error.args[0])
             return False
         else:
+            # Display data
+            self.setup_plot()
+            # Disaplay information on statusbar
             self.statusbar.clearMessage()
             start = dt.datetime.fromtimestamp(self.daq.mcu.timestamp)
             start = dt.datetime.strftime(start, '%Y-%m-%d %H:%M:%S')
@@ -182,8 +187,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     'Sampling frequency: {:.2f} Hz | '.format(
                             self.daq.config.sampling_freq) +
                     'Start: {}'.format(start))
-            self.setup_plot()
-            # Reset buttons.
+            # Reset buttons
             self.recordButton.setDisabled(True)
             self.stopRecordButton.setEnabled(True)
             self.displayGroupBox.setDisabled(True)
@@ -320,7 +324,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if self.physUnitsCheckBox.isChecked():
                 text = self.daq.config.signals[indx].physical_dim
             else:
-                text = 'ADC'
+                text = 'Digital'
             plot.setLabel('left', fmt.format(text), units=None)
 
     def display_status(self, status):
@@ -340,15 +344,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.status_label.setText(
                 "<span style='font-size: 16 pt; color: {}'>{}</span>".
                 format(colour, text))
-
-    def clear_plot(self):
-        self.display_buffer.clear()
-        self.clear_regions()
-        for curve in self.curves:
-            curve.clear()
-        for item in self._items:
-            item.setVisible(False)
-        self._items = []
 
 
 if __name__ == "__main__":
