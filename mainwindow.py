@@ -160,6 +160,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.display_status('stop')
 
     def on_physUnitsCheckBox_toggled(self):
+        if not hasattr(self, 'plots'):
+            return
         self.update_y_labels()
 
     # Capture group ----------------------------------------------------
@@ -201,6 +203,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if hasattr(self, 'timer'):
             self.timer.stop()
         self.daq.stop_recording()
+        self.recordButton.setEnabled(True)
         self.stopRecordButton.setDisabled(True)
         self.displayGroupBox.setEnabled(True)
         self.configurationGroupBox.setEnabled(True)
