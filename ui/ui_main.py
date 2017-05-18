@@ -147,7 +147,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "PyDAQ"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "pydaq"))
         self.configurationGroupBox.setTitle(_translate("MainWindow", "Configuration"))
         self.configureButton.setToolTip(_translate("MainWindow", "Configure [Ctrl+C]"))
         self.configureButton.setText(_translate("MainWindow", "Configure"))
