@@ -34,7 +34,7 @@ of the standard library so no need for extra dependencies.
 import os
 import configparser
 from collections import OrderedDict
-from edfrw import (SubjectId, RecordingId, Signal)
+from edfrw import (EdfSubjectId, EdfRecordingId, EdfSignal)
 
 # Arduino baud rates, according to https://www.arduino.cc/en/Serial
 # /Begin: 300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400,
@@ -58,7 +58,7 @@ class Configuration(object):
         Sampling frequency in Hz.
     working_dir : :obj:`str`
         Directory where data files will be saved. Defaults to ``'.'``.
-    signals : :obj:`list` of :obj:`edfrw.Signal`
+    signals : :obj:`list` of :obj:`edfrw.EdfSignal`
         List of signals to acquire. The contents must match those
         signals expected from the MCU.
     saving_period_s : :obj:`int`
@@ -72,11 +72,11 @@ class Configuration(object):
         self.data_path = data_path
         self.saving_period_s = saving_period_s
 
-        self.subject_id = SubjectId()
-        self.recording_id = RecordingId()
+        self.subject_id = EdfSubjectId()
+        self.recording_id = EdfRecordingId()
 
         if len(signals) == 0:
-            signals = [Signal(label = 'Signal_' + str(n+1))
+            signals = [EdfSignal(label = 'Signal ' + str(n+1))
                             for n in range(3)]
         # Each signal must have sampling frequency defined. Pydaq in its
         # current form acquires all signals at the same rate but EDF
@@ -178,14 +178,14 @@ class Configuration(object):
             sex = subject.get('sex', 'X')
             dob = subject.get('dob', 'X')
             name = subject.get('name', 'X')
-            self.subject_id = SubjectId(code, sex, dob, name)
+            self.subject_id = EdfSubjectId(code, sex, dob, name)
 
         if 'Recording' in config.sections():
             rec = config['Recording']
             experiment_id = rec.get('experiment_id', 'X')
             investigator_id = rec.get('investigator_id', 'X')
             equipment_code = rec.get('equipment_code', 'X')
-            self.recording_id = RecordingId(None, experiment_id,
+            self.recording_id = EdfRecordingId(None, experiment_id,
                                             investigator_id,
                                             equipment_code)
 
@@ -196,7 +196,7 @@ class Configuration(object):
             signal_names.sort()
             for name in signal_names:
                 sig = config[name]
-                self.signals.append(Signal(
+                self.signals.append(EdfSignal(
                         label = sig.get('label', ''),
                         transducer_type = sig.get('transducer_type', ''),
                         physical_dim = sig.get('physical_dim', ''),

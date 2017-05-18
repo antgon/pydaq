@@ -26,7 +26,6 @@ import pyqtgraph as pg
 import numpy as np
 from serial import (SerialException)
 
-from edfrw import (SubjectId, RecordingId, Signal)
 from ui.ui_main import Ui_MainWindow
 from acquisition import DataAcquisition
 from dialogs import ConfigurationDialog

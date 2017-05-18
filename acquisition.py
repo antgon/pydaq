@@ -28,7 +28,7 @@ from serial import (Serial, SerialException)
 from serial.tools import list_ports
 import numpy as np
 
-from edfrw import (SubjectId, RecordingId, Signal, EdfWriter)
+from edfrw import (EdfWriter, EdfHeader)
 from configuration import Configuration
 
 # Arduino baud rates, according to https://www.arduino.cc/en/Serial
@@ -173,13 +173,13 @@ class DataAcquisition(object):
     _start = b'\xff\xff\xff\xff'
     _start_size = 4
 
-    def __init__(self):
+    def __init__(self, microcontroller='mbed'):
         self.config = Configuration()
 
         # Public variables
+        self.mcu = MCU(microcontroller)
         self.x = None
         self.y = None
-        self.mcu = MCU('mbed')
 
         # Private variables.
         self._edffile = None
@@ -326,22 +326,24 @@ class DataAcquisition(object):
         '''
         Save data to file.
         '''
-        # Format e.g.: 'ID2020_2017-05-09_17.01.46.edf'
+        # Filename format e.g.: 'ID2020_2017-05-09_17.01.46.edf'
         now = dt.datetime.now()
         filename = '{}_{:%Y-%m-%d_%H_%M_%S}.edf'.format(
                 self.config.subject_id.code, now)
         filename = os.path.join(self.config.data_path, filename)
-        self._edffile = EdfWriter(
-                filename,
-                self.config.subject_id,
-                self.config.recording_id,
-                signals=self.config.signals,
-                saving_period_s=self.config.saving_period_s,
-                date_time=now)
+
+        edf_header = EdfHeader(
+                date_time = now,
+                duration_of_data_record = self.config.saving_period_s,
+                signals = self.config.signals)
+        edf_header.subject_id = self.config.subject_id
+        edf_header.recording_id = self.config.recording_id
+
+        self._edffile = EdfWriter(filename, header=edf_header)
+
         # Maximum length of input buffer before its data are flushed
         # to disk.
-        self._iomaxlen = (
-                self.edffile.header.number_of_samples_in_data_record)
+        self._iomaxlen = (edf_header.number_of_samples_in_data_record)
         self.stop()
         self._iobuffer = deque()
         self.start()
@@ -356,4 +358,4 @@ class DataAcquisition(object):
 
 
 if __name__ == '__main__':
-    self = DataAcquisition()
+    self = DataAcquisition('mbed')
