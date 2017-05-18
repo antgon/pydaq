@@ -22,7 +22,7 @@ import os
 from datetime import datetime
 from PyQt5 import (QtCore, QtGui, QtWidgets)
 
-from edfrw import Signal
+from edfrw import EdfSignal
 from ui.ui_configuration_dialog import Ui_ConfigurationDialog
 from ui.ui_signal_dialog import Ui_SignalDialog
 from configuration import BAUD_RATES
@@ -315,7 +315,7 @@ class SignalModel(QtCore.QAbstractTableModel):
         self.beginInsertRows(QtCore.QModelIndex(), position,
                              position + rows - 1)
         n = len(self.signals) + 1
-        new_signal = Signal(label='Signal {}'.format(n))
+        new_signal = EdfSignal(label='Signal {}'.format(n))
         new_signal.sampling_freq = self.data
         self.signals.append(new_signal)
         self.endInsertRows()
@@ -347,7 +347,16 @@ class SubjectIdModel(QtCore.QAbstractListModel):
             elif row == SEX:
                 return QtCore.QVariant(self.subject_id.sex)
             elif row == DOB:
-                return QtCore.QVariant(self.subject_id.dob)
+                # In EDF, an unknown DOB is coded as 'X', in which
+                # case QDate will raise a TypeError. If that happens
+                # set an arbitrary defulat date instead. 
+                try:
+                    return QtCore.QVariant(
+                            QtCore.QDate(self.subject_id.dob))
+                except TypeError:
+                    return QtCore.QVariant(
+                            QtCore.QDate(2015, 1, 1))
+
             elif row == NAME:
                 return QtCore.QVariant(self.subject_id.name)
         else:
