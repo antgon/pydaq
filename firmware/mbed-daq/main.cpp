@@ -117,9 +117,9 @@ User-defined variables
 // function must be modified so that the values are read and added
 // to the data buffer.
 const uint8_t number_of_signals = 3;
-AnalogIn analog_0(A0);
-AnalogIn analog_1(A1);
-AnalogIn analog_2(A2);
+AnalogIn analog_0(A1);
+AnalogIn analog_1(A2);
+AnalogIn analog_2(A3);
 volatile uint16_t val_0 = 0;
 volatile uint16_t val_1 = 0;
 volatile uint16_t val_2 = 0;
@@ -128,7 +128,7 @@ volatile uint16_t val_2 = 0;
 // is not configured or when it is reset (just as LED1). It will be
 // pulled down when the mbed starts acquiring data. This pin can be used
 // to synchronise e.g. video acquisition with the RPi.
-#define CAMERA_PIN p21
+#define CAMERA_PIN p20
 
 
 /*************************
@@ -263,8 +263,8 @@ void serial_rx_interrupt(){
             for (uint8_t i=0; i<14; i++){
                 config_buffer[i] = pc.getc();
             }
-            // After reading the configuration string deferr
-            // configuratione to a different thread to release the main
+            // After reading the configuration string defer
+            // configuration to a different thread to release the main
             // thread.
             queue.call(&configure);
         }

@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(780, 538)
+        MainWindow.resize(780, 551)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/icon.svg"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         MainWindow.setWindowIcon(icon)
@@ -30,10 +30,12 @@ class Ui_MainWindow(object):
         self.configureButton = QtWidgets.QPushButton(self.configurationGroupBox)
         self.configureButton.setObjectName("configureButton")
         self.verticalLayout_2.addWidget(self.configureButton)
-        self.newFileButton = QtWidgets.QPushButton(self.configurationGroupBox)
-        self.newFileButton.setToolTipDuration(-1)
-        self.newFileButton.setObjectName("newFileButton")
-        self.verticalLayout_2.addWidget(self.newFileButton)
+        self.loadConfigButton = QtWidgets.QPushButton(self.configurationGroupBox)
+        self.loadConfigButton.setObjectName("loadConfigButton")
+        self.verticalLayout_2.addWidget(self.loadConfigButton)
+        self.saveConfigButton = QtWidgets.QPushButton(self.configurationGroupBox)
+        self.saveConfigButton.setObjectName("saveConfigButton")
+        self.verticalLayout_2.addWidget(self.saveConfigButton)
         self.verticalLayout.addWidget(self.configurationGroupBox)
         self.displayGroupBox = QtWidgets.QGroupBox(self.centralwidget)
         self.displayGroupBox.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
@@ -145,14 +147,13 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "PyDAQ"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "pydaq"))
         self.configurationGroupBox.setTitle(_translate("MainWindow", "Configuration"))
         self.configureButton.setToolTip(_translate("MainWindow", "Configure [Ctrl+C]"))
         self.configureButton.setText(_translate("MainWindow", "Configure"))
         self.configureButton.setShortcut(_translate("MainWindow", "Ctrl+C"))
-        self.newFileButton.setToolTip(_translate("MainWindow", "New file [Ctrl+N]"))
-        self.newFileButton.setText(_translate("MainWindow", "New file"))
-        self.newFileButton.setShortcut(_translate("MainWindow", "Ctrl+N"))
+        self.loadConfigButton.setText(_translate("MainWindow", "Load"))
+        self.saveConfigButton.setText(_translate("MainWindow", "Save as"))
         self.displayGroupBox.setTitle(_translate("MainWindow", "Display"))
         self.playButton.setToolTip(_translate("MainWindow", "Start [P]"))
         self.playButton.setShortcut(_translate("MainWindow", "P"))

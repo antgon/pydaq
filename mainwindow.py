@@ -19,28 +19,17 @@
 # along with pydaq. If not, see <http://www.gnu.org/licenses/>.
 
 from itertools import count
+import datetime as dt
+import time
 from PyQt5 import (QtCore, QtGui, QtWidgets)
 import pyqtgraph as pg
 import numpy as np
-from serial import (SerialException)  # SerialTimeoutException)
+from serial import (SerialException)
 
-from edfrw import (SubjectId, RecordingId, Signal)
 from ui.ui_main import Ui_MainWindow
-from acquisition import (DataAcquisition)
-from dialogs import (ConfigurationDialog, NewFileDialog)
+from acquisition import DataAcquisition
+from dialogs import ConfigurationDialog
 
-# TODO
-# Upon rec stop, wait for one full cycle to complete to ensure that the
-# last data acquired are saved.
-
-# Set a limit to sampling freq. What is reasonable and manageable? At
-# the moment the ange 1 to 999 are set directly in the UI because
-# configuration cmd in its current form can only take 3 digits for
-# sampling freq.
-
-# Plot displays physical instead of digital values
-
-# EDF items must be int16 (not uint16)-check that this is consistent.
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     '''
@@ -53,9 +42,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         QtWidgets.QWidget.__init__(self, parent)
         self.setupUi(self)
 
-        self.newFileButton.setDisabled(True)
-        self.displayGroupBox.setDisabled(True)
-        self.captureGroupBox.setDisabled(True)
+        #self.displayGroupBox.setDisabled(True)
+        #self.captureGroupBox.setDisabled(True)
         self.markersGroupBox.setDisabled(True)
 
         self.daq = DataAcquisition()
@@ -63,9 +51,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def on_quitButton_clicked(self, checked=None):
         if checked is None:
             return
+        # Stop data acquisition.
         if hasattr(self, 'timer'):
             self.timer.stop()
         self.daq.stop()
+        # Save current configuration.
+        self.daq.config.save()
+        # Close main window.
         self.close()
 
     # Configuration-----------------------------------------------------
@@ -76,87 +68,53 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.statusbar.clearMessage()
 
-        # If there are no signals create 3 empty signals to start with.
-        if len(self.daq.signals) == 0:
-            for n in (1, 2, 3):
-                s = Signal(label='Signal {}'.format(n))
-                self.daq.signals.append(s)
-
-        dialog = ConfigurationDialog(self.daq, parent=self)
+        dialog = ConfigurationDialog(self.daq.config, parent=self)
         ok_clicked = dialog.exec_()
         if ok_clicked:
             # TODO EDF allows to acquire each signal at different sample
             # rates, but for the time being this software aquires all
-            # signals at the same rate. This lines are to ensure that
-            # the signals sampling frequency match.
-            for signal in self.daq.signals:
-                signal.sampling_freq = self.daq.sampling_freq
-            # TODO check that there are enough signals and config is
-            # valid
-            # set sampling freq to each signal
-            self.newFileButton.setEnabled(True)
-            self.displayGroupBox.setEnabled(True)
+            # signals at the same rate. These lines are to ensure that
+            # the signals' sampling frequency match.
+            for signal in self.daq.config.signals:
+                signal.sampling_freq = self.daq.config.sampling_freq
             # At low sampling frequencies the GUI refresh rate must
             # be slowed down to avoid errors. GUI refresh rate is in
             # milliseconds.
-            if self.daq.sampling_freq < 1000/self.GUI_REFRESH_RATE:
-                self.GUI_REFRESH_RATE = 1000/self.daq.sampling_freq
+            if self.daq.config.sampling_freq < 1000/self.GUI_REFRESH_RATE:
+                self.GUI_REFRESH_RATE = 1000/self.daq.config.sampling_freq
             else:
                 # Reset to the default
                 self.GUI_REFRESH_RATE = 100
 
-    # New file ---------------------------------------------------------
-
-    # TODO if a file was previously created, a new file dialog should
-    # load previous values to save time typing
-
-    # TODO set up this dialog in a model/view manner instead, as with
-    # configuration
-
-    def on_newFileButton_clicked(self, checked=None):
+    def on_loadConfigButton_clicked(self, checked=None):
         if checked is None:
             return
-        dialog = NewFileDialog(self.daq, parent=self)
-        ok_clicked = dialog.exec_()
-        if ok_clicked:
-            # Subject variables
-            code = dialog.codeLineEdit.text()
-            if dialog.sexMradioButton.isChecked():
-                sex = 'M'
-            elif dialog.sexFradioButton.isChecked():
-                sex = 'F'
-            else:
-                sex = 'X'
-            dob = dialog.dobDateEdit.date().toPyDate()
-            dob = dob.isoformat()
-            name = dialog.nameLineEdit.text()
+        config_f = QtWidgets.QFileDialog.getOpenFileName(
+                parent=self,
+                directory=self.daq.config.data_path,
+                filter='INI files (*.ini)',
+                caption='Select configuration file')
+        config_f = config_f[0]
+        if config_f:
+            self.daq.config.load(config_f)
 
-            # Recording variables
-            startdate = dialog.startdateDateEdit.date().toPyDate()
-            startdate = startdate.isoformat()
-            experiment_id = dialog.experimentIdLineEdit.text()
-            investigator_id = dialog.investigatorIdLineEdit.text()
-            equipment_code = dialog.equipmentCodeLineEdit.text()
-
-            # Create EDF entries
-            subject_id = SubjectId(code, sex, dob, name)
-            recording_id = RecordingId(startdate, experiment_id,
-                                       investigator_id,
-                                       equipment_code)
-
-            # Flush data period
-            self.daq.saving_period_s = dialog.flushSecondsSpinBox.value()
-
-            # Filename
-            filename = dialog.filenameLineEdit.text()
-            #filename = os.path.join(self.config.working_dir, filename)
-            self.daq.open_edf(filename, subject_id, recording_id)
-
-            self.captureGroupBox.setEnabled(True)
+    def on_saveConfigButton_clicked(self, checked=None):
+        if checked is None:
+            return
+        config_f = QtWidgets.QFileDialog.getSaveFileName(
+                parent=self,
+                directory=self.daq.config.data_path,
+                filter='INI files (*.ini)',
+                caption='Save configuration as...')
+        config_f = config_f[0]
+        if config_f:
+            self.daq.config.save(config_f)
 
     # Display group ----------------------------------------------------
 
-    def connect(self):
+    def on_playButton_clicked(self, checked=None):
+        if checked is None:
+            return
         self.statusbar.showMessage('Connecting to µC...')
         try:
             self.daq.start()
@@ -166,21 +124,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             QtWidgets.QMessageBox.critical(self, msg, error.args[0])
             return False
         else:
-            self.statusbar.clearMessage()
-            self.statusbar.showMessage(
-                    'µC port: {}  |  Sampling frequency: {:.2f} Hz'.
-                    # format(self.daq.port.systemLocation(),
-                    format(self.daq.mcu.port,
-                           self.daq.sampling_freq))
+            # Display data
             self.setup_plot()
-            return True
-
-    def on_playButton_clicked(self, checked=None):
-        if checked is None:
-            return
-
-        if self.connect():
-            # Reset buttons.
+            # Display information on status bar
+            self.statusbar.clearMessage()
+            start = dt.datetime.fromtimestamp(self.daq.mcu.timestamp)
+            start = dt.datetime.strftime(start, '%Y-%m-%d %H:%M:%S')
+            self.statusbar.showMessage(
+                    'µC port: {} | '.format(self.daq.mcu.port) +
+                    'Sampling frequency: {:.2f} Hz | '.format(
+                            self.daq.config.sampling_freq) +
+                    'Start: {}'.format(start))
+            # Reset buttons
             self.playButton.setDisabled(True)
             self.stopButton.setEnabled(True)
             self.configurationGroupBox.setDisabled(True)
@@ -194,15 +149,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.timer.stop()
         self.daq.stop()
 
+        #tend = dt.datetime.fromtimestamp(time.time())
+        #tend = dt.datetime.strftime(tend, '%Y-%m-%d %H:%M:%S')
+        #print('Stop: {}'.format(tend))
         self.playButton.setEnabled(True)
-        # self.playButton.setChecked(False)
         self.stopButton.setDisabled(True)
         self.configurationGroupBox.setEnabled(True)
         self.captureGroupBox.setEnabled(True)
-
         self.display_status('stop')
 
     def on_physUnitsCheckBox_toggled(self):
+        if not hasattr(self, 'plots'):
+            return
         self.update_y_labels()
 
     # Capture group ----------------------------------------------------
@@ -210,21 +168,33 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def on_recordButton_clicked(self, checked=None):
         if checked is None:
             return
-
-        if self.daq.edffile is None:
-            msg = ('Create a new file first.')
-            QtGui.QMessageBox.information(self, 'No EDF file',
-                                          msg, QtGui.QMessageBox.Ok)
-            return
-
+        self.statusbar.showMessage('Connecting to µC...')
+        try:
+            self.daq.start_recording()
+        except SerialException as error:
+            msg = 'Connection error'
+            self.statusbar.showMessage(msg)
+            QtWidgets.QMessageBox.critical(self, msg, error.args[0])
+            return False
         else:
-            if self.connect():
-                self.stopRecordButton.setEnabled(True)
-                self.displayGroupBox.setDisabled(True)
-                self.configurationGroupBox.setDisabled(True)
-                self.videoCheckBox.setDisabled(True)
-                self.daq.start_recording()
-                self.display_status('rec')
+            # Display data
+            self.setup_plot()
+            # Disaplay information on statusbar
+            self.statusbar.clearMessage()
+            start = dt.datetime.fromtimestamp(self.daq.mcu.timestamp)
+            start = dt.datetime.strftime(start, '%Y-%m-%d %H:%M:%S')
+            self.statusbar.showMessage(
+                    'µC port: {} | '.format(self.daq.mcu.port) +
+                    'Sampling frequency: {:.2f} Hz | '.format(
+                            self.daq.config.sampling_freq) +
+                    'Start: {}'.format(start))
+            # Reset buttons
+            self.recordButton.setDisabled(True)
+            self.stopRecordButton.setEnabled(True)
+            self.displayGroupBox.setDisabled(True)
+            self.configurationGroupBox.setDisabled(True)
+            self.videoCheckBox.setDisabled(True)
+            self.display_status('rec')
 
     def on_stopRecordButton_clicked(self, checked=None):
         if checked is None:
@@ -232,6 +202,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if hasattr(self, 'timer'):
             self.timer.stop()
         self.daq.stop_recording()
+        self.recordButton.setEnabled(True)
         self.stopRecordButton.setDisabled(True)
         self.displayGroupBox.setEnabled(True)
         self.configurationGroupBox.setEnabled(True)
@@ -240,10 +211,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def on_videoCheckBox_toggled(self):
         pass
-
-    def on_loadProfileButton_clicked(self, checked=None):
-        if checked is None:
-            return
 
     # TODO Markers -----------------------------------------------------
 
@@ -273,7 +240,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             y = np.array(self.daq.y).T
             for (index, curve, samples) in zip(count(), self.curves, y):
                 if self.physUnitsCheckBox.isChecked():
-                    samples = self.daq.signals[index].dig_to_phys(samples)
+                    samples = self.daq.config.signals[index].dig_to_phys(samples)
                 curve.setData(x, samples)
 
     def setup_plot(self):
@@ -305,7 +272,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Create a plot for each signal and initialise a curve for
         # each plot. These curves are the ones that will be updated
         # with serial data.
-        for row in range(self.daq.nsignals):
+        for row in range(self.daq.config.nsignals):
             self.layout.nextRow()
             plot = self.layout.addPlot()
 
@@ -324,7 +291,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             # Set titles.
             title = "<span style='font-size:{}pt'>{}</span>".format(
-                    title_fontsize, self.daq.signals[row].label)
+                    title_fontsize, self.daq.config.signals[row].label)
             plot.setTitle(title, justify='left')
 
             # Create curves.
@@ -357,9 +324,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         fmt += "{}</span>"
         for indx, plot in enumerate(self.plots):
             if self.physUnitsCheckBox.isChecked():
-                text = self.daq.signals[indx].physical_dim
+                text = self.daq.config.signals[indx].physical_dim
             else:
-                text = 'ADC'
+                text = 'Digital'
             plot.setLabel('left', fmt.format(text), units=None)
 
     def display_status(self, status):
@@ -379,15 +346,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.status_label.setText(
                 "<span style='font-size: 16 pt; color: {}'>{}</span>".
                 format(colour, text))
-
-    def clear_plot(self):
-        self.display_buffer.clear()
-        self.clear_regions()
-        for curve in self.curves:
-            curve.clear()
-        for item in self._items:
-            item.setVisible(False)
-        self._items = []
 
 
 if __name__ == "__main__":
