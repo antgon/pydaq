@@ -18,17 +18,8 @@ Signals: Describes each of the signals (or channels) that are to be
     1.1 If no ~/.config/pydaq.ini, make one with default values
     1.2 When pydaq is closed, ~/.config/pydaq.ini is overwriten with
         last config values
-    1.3 [Future] This file should also contain
-        window params (position , size)
-        plot params (line colour, font size, ...)
-2. Allow user to load configuration from config.ini file
-3. Allow user to save current configuration to a config.ini of their
-   choice
-
-
-
-Two options seem reasonable: yaml or configparser. The latter is part
-of the standard library so no need for extra dependencies.
+2. Allow user to load any .ini file
+3. Allow user to save current configuration to a .ini of their choice
 '''
 
 import os
