@@ -325,25 +325,56 @@ class DataAcquisition(object):
     def start_recording(self):
         '''
         Save data to file.
+
+        61440 bytes per datarecord
+
+        sum of :
+            saving_period_s * signal.number_of_samples_in_data_record * 2
+        for all signals must be <= 61440
+
+        so when setting signals,
+
+        Recall relationships:
+            header.duration_of_data_record == saving_period_s
+
+            and
+                signal.number_of_samples_in_data_record = (
+                    signal.sampling_freq * saving_period_s)
+
+        work backwards,
+        num of bytes in 1 second is
+        bytes_per_sec = sum(signal.sampling_freq * 2 for signal in signals)
+
+        thus max seconds allowed:
+        max_saving_period = floor(61440 / bytes_per_sec)
+
         '''
+        # TODO: There can be max 61440 bytes per datarecord
+
         # Filename format e.g.: 'ID2020_2017-05-09_17.01.46.edf'
         now = dt.datetime.now()
         filename = '{}_{:%Y-%m-%d_%H_%M_%S}.edf'.format(
                 self.config.subject_id.code, now)
         filename = os.path.join(self.config.data_path, filename)
 
-        edf_header = EdfHeader(
-                date_time = now,
-                duration_of_data_record = self.config.saving_period_s,
-                signals = self.config.signals)
+        edf_header = EdfHeader(date_time = now,
+                               signals = self.config.signals)
         edf_header.subject_id = self.config.subject_id
         edf_header.recording_id = self.config.recording_id
 
-        self._edffile = EdfWriter(filename, header=edf_header)
+        self._edffile = EdfWriter(
+                filename,
+                header=edf_header,
+                saving_period_s=self.config.saving_period_s)
 
-        # Maximum length of input buffer before its data are flushed
-        # to disk.
-        self._iomaxlen = (edf_header.number_of_samples_in_data_record)
+        # Number of samples in data record: the sum of each signal's
+        # number_of_samples_in_data_record. When the buffer fills up
+        # with these many samples the data are flushed to disk.
+        n_samples = [(signal.sampling_freq *
+                      self.config.saving_period_s) for
+                     signal in self.config.signals]
+        self._iomaxlen = np.sum(n_samples)
+
         self.stop()
         self._iobuffer = deque()
         self.start()
